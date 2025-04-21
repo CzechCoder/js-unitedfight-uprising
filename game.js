@@ -257,20 +257,24 @@ function update() {
       Math.min(VIRTUAL_HEIGHT - enemy.height - 5, enemy.y)
     );
 
+    const isBoss = enemy.characterType === "boss";
+    const attackChance = isBoss ? 0.2 : 0.1; // Boss attacks more frequently
+    const cooldown = isBoss ? 0.8 : 1.2;
+    const damage = isBoss ? 25 : 10;
+
     // Only attempt to punch if close
     if (distance < stopDistance + 10 && !enemy.isAttacking) {
-      if (enemy.attackCooldown <= 0 && Math.random() < 0.02) {
-        // 2% chance per frame
+      if (enemy.attackCooldown <= 0 && Math.random() < attackChance) {
         enemy.isAttacking = true;
         enemy.attackFlashTimer = 0.3; // seconds
-        enemy.attackCooldown = 2; // 2 seconds cooldown
+        enemy.attackCooldown = cooldown;
 
-        // Optional: Damage the player
+        // Damage the player
         const playerHitRange = 60;
         const dxHit = Math.abs(player.x - enemy.x);
         const dyHit = Math.abs(player.y - enemy.y);
         if (dxHit < playerHitRange && dyHit < player.height) {
-          player.health = Math.max(0, player.health - 10); // reduce health
+          player.health = Math.max(0, player.health - damage); // reduce health
         }
       }
     }
