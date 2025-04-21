@@ -23,7 +23,7 @@ const player = {
   y: VIRTUAL_HEIGHT - 350,
   width: 94,
   height: 206,
-  speed: 5,
+  speed: 4,
   vx: 0,
   vy: 0,
   health: 100,
@@ -62,6 +62,9 @@ enemyImage.src = "image/enemy_idle.png";
 const enemyBossImage = new Image();
 enemyBossImage.src = "image/enemy_boss_idle.png";
 
+const pizzaImage = new Image();
+pizzaImage.src = "image/item_pizza.png";
+
 const commonEnemyProperties = {
   alive: true,
   attackCooldown: 0,
@@ -98,6 +101,19 @@ const enemies = [
   { x: 3500, y: 480, ...enemyTypes.basicThug },
   { x: 3800, y: 350, ...enemyTypes.basicThug },
   { x: 4600, y: 420, ...enemyTypes.boss },
+];
+
+const commonItemProperties = {
+  pizza: {
+    width: 88,
+    height: 80,
+    collected: false,
+  },
+};
+
+const pizzas = [
+  { x: 1600, y: 500, ...commonItemProperties.pizza },
+  { x: 3600, y: 500, ...commonItemProperties.pizza },
 ];
 
 // Game loop
@@ -289,6 +305,24 @@ function update() {
       enemy.isAttacking = false;
     }
   }
+
+  for (const pizza of pizzas) {
+    if (!pizza.collected) {
+      const dx = Math.abs(
+        player.x + player.width / 2 - (pizza.x + pizza.width / 2)
+      );
+      const dy = Math.abs(player.y + player.height - (pizza.y + pizza.height)); // feet-to-feet
+
+      const maxXRange = 40; // tighten horizontal range
+      const maxYRange = 20; // make sure Brian is close vertically (feet level)
+
+      if (dx < maxXRange && dy < maxYRange) {
+        pizza.collected = true;
+        const healAmount = player.maxHealth * 0.5;
+        player.health = Math.min(player.health + healAmount, player.maxHealth);
+      }
+    }
+  }
 }
 
 //Drawing helpers
@@ -347,6 +381,14 @@ function draw() {
     // Only draw images that are at least partially on-screen
     if (drawX + backgroundWidth > 0 && drawX < VIRTUAL_WIDTH) {
       ctx.drawImage(img, drawX, 0, backgroundWidth, VIRTUAL_HEIGHT);
+    }
+  }
+
+  for (const pizza of pizzas) {
+    if (!pizza.collected) {
+      const drawX = pizza.x - cameraX;
+      const drawY = pizza.y;
+      ctx.drawImage(pizzaImage, drawX, drawY, pizza.width, pizza.height);
     }
   }
 
