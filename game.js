@@ -56,11 +56,21 @@ brianSprites.idle.src = "image/brian_idle.png";
 brianSprites.walk.src = "image/brian_walk.png";
 brianSprites.punch.src = "image/brian_punch.png";
 
-const enemyImage = new Image();
-enemyImage.src = "image/enemy_idle.png";
+const enemySprites = {
+  thug: {
+    idle: new Image(),
+    punch: new Image(), // Attack frame for thug
+  },
+  boss: {
+    idle: new Image(),
+    punch: new Image(), // Attack frame for boss
+  },
+};
 
-const enemyBossImage = new Image();
-enemyBossImage.src = "image/enemy_boss_idle.png";
+enemySprites.thug.idle.src = "image/enemy_idle.png";
+enemySprites.thug.punch.src = "image/enemy_punch.png";
+enemySprites.boss.idle.src = "image/enemy_boss_idle.png";
+enemySprites.boss.punch.src = "image/enemy_boss_punch.png";
 
 const pizzaImage = new Image();
 pizzaImage.src = "image/item_pizza.png";
@@ -413,32 +423,32 @@ function draw() {
       const flicker =
         actor.flashTimer && Math.floor(actor.flashTimer * 10) % 2 === 0;
 
-      // Flash red when attacking
-      if (actor.attackFlashTimer > 0) {
-        ctx.globalAlpha = 0.3;
-        ctx.fillStyle = "red";
-        ctx.fillRect(drawX, drawY, actor.width, actor.height);
-        ctx.globalAlpha = 1;
-      }
-
       if (!flicker) {
-        // Pick correct sprite
-        let imageToDraw =
-          actor.characterType === "boss" ? enemyBossImage : enemyImage;
+        // Pick correct sprite for enemies
+        let enemySprite;
+        if (actor.characterType === "boss") {
+          enemySprite = actor.isAttacking
+            ? enemySprites.boss.punch
+            : enemySprites.boss.idle;
+        } else {
+          enemySprite = actor.isAttacking
+            ? enemySprites.thug.punch
+            : enemySprites.thug.idle;
+        }
 
         ctx.save();
         if (actor.facing === "right") {
           ctx.translate(drawX + actor.width / 2, 0);
           ctx.scale(-1, 1);
           ctx.drawImage(
-            imageToDraw,
+            enemySprite,
             -actor.width / 2,
             drawY,
             actor.width,
             actor.height
           );
         } else {
-          ctx.drawImage(imageToDraw, drawX, drawY, actor.width, actor.height);
+          ctx.drawImage(enemySprite, drawX, drawY, actor.width, actor.height);
         }
         ctx.restore();
       }
