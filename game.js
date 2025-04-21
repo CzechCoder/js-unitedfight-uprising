@@ -66,9 +66,15 @@ enemyTypes = {
     height: 210,
     health: 1,
     alive: true,
-    rank: "thug",
+    characterType: "thug",
   },
-  boss: { width: 180, height: 320, health: 5, alive: true, rank: "boss" },
+  boss: {
+    width: 129,
+    height: 230,
+    health: 5,
+    alive: true,
+    characterType: "boss",
+  },
 };
 
 // Arrays
@@ -82,7 +88,7 @@ const enemies = [
   { x: 3100, y: 400, ...enemyTypes.basicThug },
   { x: 3500, y: 480, ...enemyTypes.basicThug },
   { x: 3800, y: 350, ...enemyTypes.basicThug },
-  { x: 4600, y: 320, ...enemyTypes.boss },
+  { x: 4600, y: 420, ...enemyTypes.boss },
 ];
 
 // Game loop
@@ -222,8 +228,10 @@ function draw() {
 
   // Merge all entities into a list for z-sorting
   const actors = [
-    ...enemies.filter((e) => e.alive).map((e) => ({ ...e, type: "enemy" })),
-    { ...player, type: "player" },
+    ...enemies
+      .filter((e) => e.alive)
+      .map((e) => ({ ...e, renderType: "enemy" })),
+    { ...player, renderType: "player" },
   ];
 
   // Sort by y position (actors further down appear in front)
@@ -234,19 +242,21 @@ function draw() {
     const drawX = actor.x - cameraX;
     const drawY = actor.y;
 
-    if (actor.type === "enemy") {
+    if (actor.renderType === "enemy") {
       // Flashing logic
       if (actor.flashTimer && Math.floor(actor.flashTimer * 10) % 2 === 0) {
         ctx.globalAlpha = 0.3;
       }
 
-      ctx.drawImage(
-        actor.rank === "thug" ? enemyImage : enemyBossImage,
-        drawX,
-        drawY,
-        actor.width,
-        actor.height
-      );
+      // Pick correct sprite
+      let imageToDraw;
+      if (actor.characterType === "boss") {
+        imageToDraw = enemyBossImage;
+      } else {
+        imageToDraw = enemyImage;
+      }
+
+      ctx.drawImage(imageToDraw, drawX, drawY, actor.width, actor.height);
       ctx.globalAlpha = 1;
     } else {
       let sprite = brianSprites.idle;
