@@ -23,9 +23,11 @@ const player = {
   y: VIRTUAL_HEIGHT - 350,
   width: 94,
   height: 206,
-  speed: 4,
+  speed: 5,
   vx: 0,
   vy: 0,
+  health: 100,
+  maxHealth: 100,
   action: "idle",
   facing: "right",
   frame: 0,
@@ -250,6 +252,50 @@ function update() {
   }
 }
 
+//Drawing helpers
+function drawHealthBar() {
+  const barX = 30;
+  const barY = 50;
+  const barWidth = 450;
+  const barHeight = 25;
+
+  const healthPercent = player.health / player.maxHealth;
+  const filledWidth = Math.max(0, barWidth * healthPercent); // no negative width
+
+  // Draw red background
+  ctx.fillStyle = "red";
+  ctx.fillRect(barX, barY, barWidth, barHeight);
+
+  // Draw yellow foreground
+  ctx.fillStyle = "yellow";
+  ctx.fillRect(barX, barY, filledWidth, barHeight);
+
+  // Optional: Border and label
+  ctx.strokeStyle = "white";
+  ctx.lineWidth = 2;
+  ctx.strokeRect(barX, barY, barWidth, barHeight);
+
+  ctx.font = "20px Arial";
+  ctx.textAlign = "left";
+  const nameGradient = ctx.createLinearGradient(0, barY - 20, 0, barY - 1); // Adjust 60 if name is wider/narrower
+  nameGradient.addColorStop(0, "red");
+  nameGradient.addColorStop(1, "white");
+  ctx.fillStyle = nameGradient;
+
+  // Add shadow for readability
+  ctx.shadowColor = "black";
+  ctx.shadowBlur = 0;
+  ctx.shadowOffsetX = 2;
+  ctx.shadowOffsetY = 2;
+
+  ctx.fillText("BRIAN", barX, 45);
+
+  ctx.shadowColor = "transparent";
+  ctx.shadowBlur = 0;
+  ctx.shadowOffsetX = 0;
+  ctx.shadowOffsetY = 0;
+}
+
 // Draw logic
 function draw() {
   ctx.clearRect(0, 0, VIRTUAL_WIDTH, VIRTUAL_HEIGHT);
@@ -356,6 +402,8 @@ function draw() {
       ctx.restore();
     }
   }
+
+  drawHealthBar();
 }
 
 // Input handling
