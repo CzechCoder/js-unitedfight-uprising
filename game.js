@@ -104,7 +104,7 @@ function checkPunchHits() {
   const punchHeight = 50;
 
   for (const enemy of enemies) {
-    if (!enemy.alive) continue;
+    if (!enemy.alive || enemy.flashTimer !== undefined) continue;
 
     const facing = player.facing === "right" ? 1 : -1;
     const punchX = player.x + facing * punchRange;
@@ -209,6 +209,45 @@ function update() {
       powEffects.splice(i, 1); // Remove expired effect
     }
   }
+
+  // Enemies move (basic AI)
+  for (const enemy of enemies) {
+    if (!enemy.alive || enemy.flashTimer !== undefined) continue;
+
+    const screenX = enemy.x - cameraX;
+    if (screenX + enemy.width < 0 || screenX > VIRTUAL_WIDTH) {
+      // Offscreen: skip movement
+      continue;
+    }
+
+    // Face the player
+    enemy.facing = player.x < enemy.x ? "left" : "right";
+
+    // Movement toward player
+    const dx = player.x - enemy.x;
+    const dy = player.y - enemy.y;
+    const distance = Math.sqrt(dx * dx + dy * dy);
+
+    const stopDistance = 60;
+    const speed = 1.5;
+
+    if (distance > stopDistance) {
+      enemy.vx = (dx / distance) * speed;
+      enemy.vy = (dy / distance) * speed;
+
+      enemy.x += enemy.vx;
+      enemy.y += enemy.vy;
+    } else {
+      enemy.vx = 0;
+      enemy.vy = 0;
+    }
+
+    // Clamp vertical movement
+    enemy.y = Math.max(
+      335,
+      Math.min(VIRTUAL_HEIGHT - enemy.height - 5, enemy.y)
+    );
+  }
 }
 
 // Draw logic
@@ -256,7 +295,22 @@ function draw() {
         imageToDraw = enemyImage;
       }
 
-      ctx.drawImage(imageToDraw, drawX, drawY, actor.width, actor.height);
+      ctx.save();
+      if (actor.facing === "right") {
+        ctx.translate(drawX + actor.width / 2, 0);
+        ctx.scale(-1, 1);
+        ctx.drawImage(
+          imageToDraw,
+          -actor.width / 2,
+          drawY,
+          actor.width,
+          actor.height
+        );
+      } else {
+        ctx.drawImage(imageToDraw, drawX, drawY, actor.width, actor.height);
+      }
+      ctx.restore();
+
       ctx.globalAlpha = 1;
     } else {
       let sprite = brianSprites.idle;
