@@ -62,20 +62,27 @@ enemyImage.src = "image/enemy_idle.png";
 const enemyBossImage = new Image();
 enemyBossImage.src = "image/enemy_boss_idle.png";
 
+const commonEnemyProperties = {
+  alive: true,
+  attackCooldown: 0,
+  isAttacking: false,
+  attackFlashTimer: 0,
+};
+
 enemyTypes = {
   basicThug: {
     width: 114,
     height: 210,
     health: 1,
-    alive: true,
     characterType: "thug",
+    ...commonEnemyProperties,
   },
   boss: {
     width: 129,
     height: 230,
     health: 5,
-    alive: true,
     characterType: "boss",
+    ...commonEnemyProperties,
   },
 };
 
@@ -249,6 +256,34 @@ function update() {
       335,
       Math.min(VIRTUAL_HEIGHT - enemy.height - 5, enemy.y)
     );
+
+    // Only attempt to punch if close
+    if (distance < stopDistance + 10 && !enemy.isAttacking) {
+      if (enemy.attackCooldown <= 0 && Math.random() < 0.02) {
+        // 2% chance per frame
+        enemy.isAttacking = true;
+        enemy.attackFlashTimer = 0.3; // seconds
+        enemy.attackCooldown = 2; // 2 seconds cooldown
+
+        // Optional: Damage the player
+        const playerHitRange = 60;
+        const dxHit = Math.abs(player.x - enemy.x);
+        const dyHit = Math.abs(player.y - enemy.y);
+        if (dxHit < playerHitRange && dyHit < player.height) {
+          player.health = Math.max(0, player.health - 10); // reduce health
+        }
+      }
+    }
+
+    if (enemy.attackCooldown > 0) {
+      enemy.attackCooldown -= 1 / 60;
+    }
+
+    if (enemy.attackFlashTimer > 0) {
+      enemy.attackFlashTimer -= 1 / 60;
+    } else {
+      enemy.isAttacking = false;
+    }
   }
 }
 
@@ -328,34 +363,39 @@ function draw() {
     const drawY = actor.y;
 
     if (actor.renderType === "enemy") {
-      // Flashing logic
-      if (actor.flashTimer && Math.floor(actor.flashTimer * 10) % 2 === 0) {
+      // Flicker on death: skip drawing every other frame
+      const flicker =
+        actor.flashTimer && Math.floor(actor.flashTimer * 10) % 2 === 0;
+
+      // Flash red when attacking
+      if (actor.attackFlashTimer > 0) {
         ctx.globalAlpha = 0.3;
+        ctx.fillStyle = "red";
+        ctx.fillRect(drawX, drawY, actor.width, actor.height);
+        ctx.globalAlpha = 1;
       }
 
-      // Pick correct sprite
-      let imageToDraw;
-      if (actor.characterType === "boss") {
-        imageToDraw = enemyBossImage;
-      } else {
-        imageToDraw = enemyImage;
-      }
+      if (!flicker) {
+        // Pick correct sprite
+        let imageToDraw =
+          actor.characterType === "boss" ? enemyBossImage : enemyImage;
 
-      ctx.save();
-      if (actor.facing === "right") {
-        ctx.translate(drawX + actor.width / 2, 0);
-        ctx.scale(-1, 1);
-        ctx.drawImage(
-          imageToDraw,
-          -actor.width / 2,
-          drawY,
-          actor.width,
-          actor.height
-        );
-      } else {
-        ctx.drawImage(imageToDraw, drawX, drawY, actor.width, actor.height);
+        ctx.save();
+        if (actor.facing === "right") {
+          ctx.translate(drawX + actor.width / 2, 0);
+          ctx.scale(-1, 1);
+          ctx.drawImage(
+            imageToDraw,
+            -actor.width / 2,
+            drawY,
+            actor.width,
+            actor.height
+          );
+        } else {
+          ctx.drawImage(imageToDraw, drawX, drawY, actor.width, actor.height);
+        }
+        ctx.restore();
       }
-      ctx.restore();
 
       ctx.globalAlpha = 1;
     } else {
