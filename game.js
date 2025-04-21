@@ -13,7 +13,9 @@ let cameraX = 0;
 let punchCooldown = 0;
 let punchDuration = 0.3; // seconds
 let punchPressed = false;
+let punchHasHit = false;
 const keys = {};
+const powEffects = [];
 
 // Player setup
 const player = {
@@ -55,19 +57,32 @@ brianSprites.punch.src = "image/brian_punch.png";
 const enemyImage = new Image();
 enemyImage.src = "image/enemy_idle.png";
 
+const enemyBossImage = new Image();
+enemyBossImage.src = "image/enemy_boss_idle.png";
+
 enemyTypes = {
-  type1: {
+  basicThug: {
     width: 114,
     height: 210,
+    health: 1,
+    alive: true,
+    rank: "thug",
   },
+  boss: { width: 180, height: 320, health: 5, alive: true, rank: "boss" },
 };
 
 // Arrays
 const enemies = [
-  { x: 800, y: 420, ...enemyTypes.type1 },
-  { x: 1100, y: 500, ...enemyTypes.type1 },
-  { x: 1500, y: 350, ...enemyTypes.type1 },
-  { x: 2000, y: 450, ...enemyTypes.type1 },
+  { x: 800, y: 420, ...enemyTypes.basicThug },
+  { x: 1100, y: 500, ...enemyTypes.basicThug },
+  { x: 1500, y: 350, ...enemyTypes.basicThug },
+  { x: 2000, y: 450, ...enemyTypes.basicThug },
+  { x: 2400, y: 480, ...enemyTypes.basicThug },
+  { x: 2800, y: 350, ...enemyTypes.basicThug },
+  { x: 3100, y: 400, ...enemyTypes.basicThug },
+  { x: 3500, y: 480, ...enemyTypes.basicThug },
+  { x: 3800, y: 350, ...enemyTypes.basicThug },
+  { x: 4600, y: 320, ...enemyTypes.boss },
 ];
 
 // Game loop
@@ -75,6 +90,41 @@ function gameLoop() {
   update();
   draw();
   requestAnimationFrame(gameLoop);
+}
+
+// Help functions
+function checkPunchHits() {
+  const punchRange = 100;
+  const punchHeight = 50;
+
+  for (const enemy of enemies) {
+    if (!enemy.alive) continue;
+
+    const facing = player.facing === "right" ? 1 : -1;
+    const punchX = player.x + facing * punchRange;
+    const punchY = player.y + player.height / 2;
+
+    const enemyCenterX = enemy.x + enemy.width / 2;
+    const enemyCenterY = enemy.y + enemy.height / 2;
+
+    const dx = Math.abs(punchX - enemyCenterX);
+    const dy = Math.abs(punchY - enemyCenterY);
+
+    if (
+      dx < enemy.width / 2 + punchRange / 2 &&
+      dy < enemy.height / 2 + punchHeight / 2
+    ) {
+      enemy.health -= 1;
+      powEffects.push({
+        x: enemy.x + enemy.width / 2,
+        y: enemy.y - 20,
+        timer: 0.3, // seconds
+      });
+      if (enemy.health <= 0) {
+        enemy.flashTimer = 0.5;
+      }
+    }
+  }
 }
 
 // Update logic
@@ -131,6 +181,28 @@ function update() {
       player.action = "idle";
     }
   }
+
+  if (player.action === "punch" && !punchHasHit) {
+    checkPunchHits();
+    punchHasHit = true; // make sure it only hits once per punch
+  }
+
+  for (const enemy of enemies) {
+    if (enemy.flashTimer !== undefined) {
+      enemy.flashTimer -= 1 / 60;
+      if (enemy.flashTimer <= 0) {
+        enemy.alive = false;
+      }
+    }
+  }
+
+  // Update POW effects
+  for (let i = powEffects.length - 1; i >= 0; i--) {
+    powEffects[i].timer -= 1 / 60;
+    if (powEffects[i].timer <= 0) {
+      powEffects.splice(i, 1); // Remove expired effect
+    }
+  }
 }
 
 // Draw logic
@@ -150,7 +222,7 @@ function draw() {
 
   // Merge all entities into a list for z-sorting
   const actors = [
-    ...enemies.map((e) => ({ ...e, type: "enemy" })),
+    ...enemies.filter((e) => e.alive).map((e) => ({ ...e, type: "enemy" })),
     { ...player, type: "player" },
   ];
 
@@ -163,7 +235,19 @@ function draw() {
     const drawY = actor.y;
 
     if (actor.type === "enemy") {
-      ctx.drawImage(enemyImage, drawX, drawY, actor.width, actor.height);
+      // Flashing logic
+      if (actor.flashTimer && Math.floor(actor.flashTimer * 10) % 2 === 0) {
+        ctx.globalAlpha = 0.3;
+      }
+
+      ctx.drawImage(
+        actor.rank === "thug" ? enemyImage : enemyBossImage,
+        drawX,
+        drawY,
+        actor.width,
+        actor.height
+      );
+      ctx.globalAlpha = 1;
     } else {
       let sprite = brianSprites.idle;
       let spriteWidth = actor.width;
@@ -180,6 +264,15 @@ function draw() {
           spriteWidth = 143;
           spriteHeight = 205;
           break;
+      }
+
+      ctx.font = "bold 32px Arial";
+      ctx.fillStyle = "red";
+      ctx.textAlign = "center";
+
+      for (const pow of powEffects) {
+        const screenX = pow.x - cameraX;
+        ctx.fillText("POW!", screenX, pow.y);
       }
 
       ctx.save();
@@ -209,6 +302,7 @@ window.addEventListener("keydown", (e) => {
     if (e.key === " " && punchCooldown <= 0) {
       player.action = "punch";
       punchCooldown = punchDuration;
+      punchHasHit = false;
     }
   }
 });
