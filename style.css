@@ -1,0 +1,12 @@
+body {
+  margin: 0;
+  overflow: hidden;
+  display: flex;
+  justify-content: center;
+  background-color: black;
+  height: 100vh;
+}
+canvas {
+  display: block;
+  border: 2px solid gray;
+}
