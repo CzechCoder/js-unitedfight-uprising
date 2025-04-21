@@ -10,12 +10,15 @@ window.addEventListener("resize", resizeCanvas);
 
 // Game variables
 let cameraX = 0;
+let punchCooldown = 0;
+let punchDuration = 0.3; // seconds
+let punchPressed = false;
 const keys = {};
 
 // Player setup
 const player = {
-  x: VIRTUAL_WIDTH / 2,
-  y: VIRTUAL_HEIGHT - 150,
+  x: VIRTUAL_WIDTH / 2 - 400,
+  y: VIRTUAL_HEIGHT - 350,
   width: 94,
   height: 206,
   speed: 4,
@@ -45,9 +48,27 @@ const brianSprites = {
   punch: new Image(),
 };
 
-brianSprites.idle.src = "image/brian_stand.png";
+brianSprites.idle.src = "image/brian_idle.png";
 brianSprites.walk.src = "image/brian_walk.png";
 brianSprites.punch.src = "image/brian_punch.png";
+
+const enemyImage = new Image();
+enemyImage.src = "image/enemy_idle.png";
+
+enemyTypes = {
+  type1: {
+    width: 114,
+    height: 210,
+  },
+};
+
+// Arrays
+const enemies = [
+  { x: 800, y: 420, ...enemyTypes.type1 },
+  { x: 1100, y: 500, ...enemyTypes.type1 },
+  { x: 1500, y: 350, ...enemyTypes.type1 },
+  { x: 2000, y: 450, ...enemyTypes.type1 },
+];
 
 // Game loop
 function gameLoop() {
@@ -88,13 +109,28 @@ function update() {
   player.x += player.vx;
   player.y += player.vy;
 
-  const minY = 458; // top limit of movement (adjust as needed)
-  const maxY = VIRTUAL_HEIGHT - player.height - 10; // bottom limit
+  const minY = 335; // top limit of movement (adjust as needed)
+  const maxY = VIRTUAL_HEIGHT - player.height - 5; // bottom limit
   const levelWidth = totalSegments * backgroundWidth;
 
   // Optional: clamp to screen
   player.x = Math.max(0, Math.min(levelWidth - player.width, player.x));
   player.y = Math.max(minY, Math.min(maxY, player.y));
+
+  if (player.action === "punch") {
+    punchCooldown -= 1 / 60; // assuming 60fps
+    if (punchCooldown <= 0) {
+      player.action = "idle";
+      punchCooldown = 0;
+    }
+  } else {
+    let isMoving = player.vx !== 0 || player.vy !== 0;
+    if (isMoving) {
+      player.action = "walk";
+    } else {
+      player.action = "idle";
+    }
+  }
 }
 
 // Draw logic
@@ -112,43 +148,69 @@ function draw() {
     }
   }
 
-  // Draw player
-  let sprite;
-  let spriteWidth = player.width;
-  let spriteHeight = player.height;
+  // Merge all entities into a list for z-sorting
+  const actors = [
+    ...enemies.map((e) => ({ ...e, type: "enemy" })),
+    { ...player, type: "player" },
+  ];
 
-  switch (player.action) {
-    case "walk":
-      sprite = brianSprites.walk;
-      spriteWidth = 129;
-      spriteHeight = 201;
-      break;
-    case "punch":
-      sprite = brianSprites.punch;
-      spriteWidth = 143;
-      spriteHeight = 205;
-      break;
-    default:
-      sprite = brianSprites.idle;
+  // Sort by y position (actors further down appear in front)
+  actors.sort((a, b) => a.y - b.y);
+
+  // Draw each actor in order
+  for (const actor of actors) {
+    const drawX = actor.x - cameraX;
+    const drawY = actor.y;
+
+    if (actor.type === "enemy") {
+      ctx.drawImage(enemyImage, drawX, drawY, actor.width, actor.height);
+    } else {
+      let sprite = brianSprites.idle;
+      let spriteWidth = actor.width;
+      let spriteHeight = actor.height;
+
+      switch (actor.action) {
+        case "walk":
+          sprite = brianSprites.walk;
+          spriteWidth = 129;
+          spriteHeight = 201;
+          break;
+        case "punch":
+          sprite = brianSprites.punch;
+          spriteWidth = 143;
+          spriteHeight = 205;
+          break;
+      }
+
+      ctx.save();
+      if (actor.facing === "left") {
+        ctx.translate(drawX + actor.width / 2, 0);
+        ctx.scale(-1, 1);
+        ctx.drawImage(
+          sprite,
+          -actor.width / 2,
+          drawY,
+          spriteWidth,
+          spriteHeight
+        );
+      } else {
+        ctx.drawImage(sprite, drawX, drawY, spriteWidth, spriteHeight);
+      }
+      ctx.restore();
+    }
   }
-
-  const drawX = player.x - cameraX;
-  const drawY = player.y;
-
-  ctx.save();
-  if (player.facing === "left") {
-    ctx.translate(drawX + player.width / 2, 0);
-    ctx.scale(-1, 1);
-    ctx.drawImage(sprite, -player.width / 2, drawY, spriteWidth, spriteHeight);
-  } else {
-    ctx.drawImage(sprite, drawX, drawY, spriteWidth, spriteHeight);
-  }
-  ctx.restore();
 }
 
 // Input handling
 window.addEventListener("keydown", (e) => {
-  keys[e.key] = true;
+  if (!keys[e.key]) {
+    keys[e.key] = true;
+
+    if (e.key === " " && punchCooldown <= 0) {
+      player.action = "punch";
+      punchCooldown = punchDuration;
+    }
+  }
 });
 
 window.addEventListener("keyup", (e) => {
