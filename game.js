@@ -17,8 +17,29 @@ let punchHasHit = false;
 let gameOver = false;
 let stageClear = false;
 let paused = false;
+const topBoundary = 335; // sidewalk top limit
 const keys = {};
 const powEffects = [];
+
+// Tweakables
+const CONFIG = {
+  punchRange: 100,
+  punchHeight: 60,
+  enemy: {
+    stopDistance: 60,
+    thugSpeed: 1.5,
+    bossSpeed: 1.2,
+    attackChance: 0.1,
+    bossAttackChance: 0.2,
+    cooldown: 1.2,
+    bossCooldown: 0.8,
+    damage: 10,
+    bossDamage: 20,
+  },
+  item: {
+    pizzaHeal: 0.5,
+  },
+};
 
 // Player setup
 const player = {
@@ -27,6 +48,7 @@ const player = {
   width: 94,
   height: 206,
   speed: 290,
+  hitRange: 60,
   vx: 0,
   vy: 0,
   health: 100,
@@ -140,14 +162,11 @@ function gameLoop() {
 
 // Help functions
 function checkPunchHits() {
-  const punchRange = 100;
-  const punchHeight = 50;
-
   for (const enemy of enemies) {
     if (!enemy.alive || enemy.flashTimer !== undefined) continue;
 
     const facing = player.facing === "right" ? 1 : -1;
-    const punchX = player.x + facing * punchRange;
+    const punchX = player.x + facing * CONFIG.punchRange;
     const punchY = player.y + player.height / 2;
 
     const enemyCenterX = enemy.x + enemy.width / 2;
@@ -157,8 +176,8 @@ function checkPunchHits() {
     const dy = Math.abs(punchY - enemyCenterY);
 
     if (
-      dx < enemy.width / 2 + punchRange / 2 &&
-      dy < enemy.height / 2 + punchHeight / 2
+      dx < enemy.width / 2 + CONFIG.punchRange / 2 &&
+      dy < CONFIG.punchHeight
     ) {
       enemy.health -= 1;
       powEffects.push({
@@ -248,7 +267,7 @@ function update(deltaTime = 1 / 60) {
     player.x += player.vx * deltaTime;
     player.y += player.vy * deltaTime;
 
-    const minY = 335; // top limit of movement (can't go above sidewalk)
+    const minY = topBoundary; // top limit of movement (can't go above sidewalk)
     const maxY = VIRTUAL_HEIGHT - player.height - 5;
     const levelWidth = totalSegments * backgroundWidth;
 
@@ -311,10 +330,9 @@ function update(deltaTime = 1 / 60) {
     const dy = player.y - enemy.y;
     const distance = Math.sqrt(dx * dx + dy * dy);
 
-    const stopDistance = 60;
     const speed = 1.5;
 
-    if (distance > stopDistance) {
+    if (distance > CONFIG.enemy.stopDistance) {
       enemy.vx = (dx / distance) * speed;
       enemy.vy = (dy / distance) * speed;
 
@@ -326,22 +344,24 @@ function update(deltaTime = 1 / 60) {
     }
 
     // Clamp vertical movement
-    enemy.y = clamp(enemy.y, 335, VIRTUAL_HEIGHT - enemy.height - 5);
+    enemy.y = clamp(enemy.y, topBoundary, VIRTUAL_HEIGHT - enemy.height - 5);
 
     const isBoss = enemy.characterType === "boss";
-    const attackChance = isBoss ? 0.2 : 0.1; // Lower number = more frequent attacks
-    const cooldown = isBoss ? 0.8 : 1.2;
-    const damage = isBoss ? 20 : 10;
+    const attackChance = isBoss
+      ? CONFIG.enemy.bossAttackChance
+      : CONFIG.enemy.attackChance;
+    const cooldown = isBoss ? CONFIG.enemy.bossCooldown : CONFIG.enemy.cooldown;
+    const damage = isBoss ? CONFIG.enemy.bossDamage : CONFIG.enemy.damage;
 
     // Only attempt to punch if close
-    if (distance < stopDistance + 10 && !enemy.isAttacking) {
+    if (distance < CONFIG.enemy.stopDistance + 10 && !enemy.isAttacking) {
       if (enemy.attackCooldown <= 0 && Math.random() < attackChance) {
         enemy.isAttacking = true;
         enemy.attackFlashTimer = 0.3; // seconds
         enemy.attackCooldown = cooldown;
 
         // Damage the player
-        const playerHitRange = 60;
+        const playerHitRange = player.hitRange;
         const dxHit = Math.abs(player.x - enemy.x);
         const dyHit = Math.abs(player.y - enemy.y);
         if (dxHit < playerHitRange && dyHit < player.height) {
@@ -373,7 +393,7 @@ function update(deltaTime = 1 / 60) {
 
       if (dx < maxXRange && dy < maxYRange) {
         pizza.collected = true;
-        const healAmount = player.maxHealth * 0.5;
+        const healAmount = player.maxHealth * CONFIG.item.pizzaHeal;
         player.health = Math.min(player.health + healAmount, player.maxHealth);
       }
     }
@@ -664,9 +684,9 @@ window.addEventListener("keyup", (e) => {
 
 let lastTime = performance.now();
 
-function gameLoop(currentTime) {
-  const deltaTime = (currentTime - lastTime) / 1000;
-  lastTime = currentTime;
+function gameLoop(time = performance.now()) {
+  const deltaTime = (time - lastTime) / 1000;
+  lastTime = time;
 
   if (!paused) {
     update(deltaTime);
