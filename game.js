@@ -61,11 +61,11 @@ brianSprites.punch.src = "image/brian_punch.png";
 const enemySprites = {
   thug: {
     idle: new Image(),
-    punch: new Image(), // Attack frame for thug
+    punch: new Image(),
   },
   boss: {
     idle: new Image(),
-    punch: new Image(), // Attack frame for boss
+    punch: new Image(),
   },
 };
 
@@ -101,6 +101,14 @@ enemyTypes = {
   },
 };
 
+const commonItemProperties = {
+  pizza: {
+    width: 88,
+    height: 80,
+    collected: false,
+  },
+};
+
 // Arrays
 const enemies = [
   { x: 1450, y: 420, ...enemyTypes.basicThug },
@@ -115,22 +123,14 @@ const enemies = [
   { x: 4600, y: 420, ...enemyTypes.boss },
 ];
 
-const initialEnemies = enemies.map((e) => ({ ...e }));
-
-const commonItemProperties = {
-  pizza: {
-    width: 88,
-    height: 80,
-    collected: false,
-  },
-};
-
 const pizzas = [
   { x: 1600, y: 500, ...commonItemProperties.pizza },
   { x: 3600, y: 500, ...commonItemProperties.pizza },
 ];
 
-// Game loop
+// Save enemies state for reset
+const initialEnemies = enemies.map((e) => ({ ...e }));
+
 function gameLoop() {
   update();
   draw();
@@ -180,7 +180,7 @@ function resetGame() {
   player.facing = "right";
 
   // Reset enemies
-  enemies.length = 0; // Clear current enemies
+  enemies.length = 0;
   initialEnemies.forEach((original) => {
     enemies.push({ ...original });
   });
@@ -196,12 +196,10 @@ function resetGame() {
   stageClear = false;
 }
 
-// Update logic
 function update(deltaTime) {
   // Game over check (if player health reaches 0)
   if (player.health <= 0 && !gameOver) {
     gameOver = true;
-    // Stop further game updates (optional, but could improve performance when game ends)
     return;
   }
 
@@ -211,14 +209,13 @@ function update(deltaTime) {
     !stageClear
   ) {
     stageClear = true;
-    // Stop further game updates
     return;
   }
 
   if (!gameOver && !stageClear) {
     cameraX = player.x - VIRTUAL_WIDTH / 2;
 
-    // Clamp camera so it doesn't go beyond level bounds
+    // Clamp camera movement so it doesn't go beyond level bounds
     const maxCameraX = totalSegments * backgroundWidth - VIRTUAL_WIDTH;
     cameraX = Math.max(0, Math.min(maxCameraX, cameraX));
 
@@ -246,16 +243,15 @@ function update(deltaTime) {
     player.x += player.vx * deltaTime;
     player.y += player.vy * deltaTime;
 
-    const minY = 335; // top limit of movement (adjust as needed)
-    const maxY = VIRTUAL_HEIGHT - player.height - 5; // bottom limit
+    const minY = 335; // top limit of movement (can't go above sidewalk)
+    const maxY = VIRTUAL_HEIGHT - player.height - 5;
     const levelWidth = totalSegments * backgroundWidth;
 
-    // Optional: clamp to screen
     player.x = Math.max(0, Math.min(levelWidth - player.width, player.x));
     player.y = Math.max(minY, Math.min(maxY, player.y));
 
     if (player.action === "punch") {
-      punchCooldown -= deltaTime; // assuming 60fps
+      punchCooldown -= deltaTime;
       if (punchCooldown <= 0) {
         player.action = "idle";
         punchCooldown = 0;
@@ -271,7 +267,7 @@ function update(deltaTime) {
 
     if (player.action === "punch" && !punchHasHit) {
       checkPunchHits();
-      punchHasHit = true; // make sure it only hits once per punch
+      punchHasHit = true; // making sure it only hits once per punch
     }
 
     for (const enemy of enemies) {
@@ -297,8 +293,8 @@ function update(deltaTime) {
     if (!enemy.alive || enemy.flashTimer !== undefined) continue;
 
     const screenX = enemy.x - cameraX;
+    // Don't move when off-screen
     if (screenX + enemy.width < 0 || screenX > VIRTUAL_WIDTH) {
-      // Offscreen: skip movement
       continue;
     }
 
@@ -331,7 +327,7 @@ function update(deltaTime) {
     );
 
     const isBoss = enemy.characterType === "boss";
-    const attackChance = isBoss ? 0.2 : 0.1; // Boss attacks more frequently
+    const attackChance = isBoss ? 0.2 : 0.1; // Lower number = more frequent attacks
     const cooldown = isBoss ? 0.8 : 1.2;
     const damage = isBoss ? 20 : 10;
 
@@ -370,8 +366,8 @@ function update(deltaTime) {
       );
       const dy = Math.abs(player.y + player.height - (pizza.y + pizza.height)); // feet-to-feet
 
-      const maxXRange = 40; // tighten horizontal range
-      const maxYRange = 20; // make sure Brian is close vertically (feet level)
+      const maxXRange = 40;
+      const maxYRange = 20;
 
       if (dx < maxXRange && dy < maxYRange) {
         pizza.collected = true;
@@ -382,7 +378,7 @@ function update(deltaTime) {
   }
 }
 
-//Drawing helpers
+//Drawing functions
 function drawHealthBar() {
   const barX = 30;
   const barY = 50;
@@ -390,29 +386,26 @@ function drawHealthBar() {
   const barHeight = 25;
 
   const healthPercent = player.health / player.maxHealth;
-  const filledWidth = Math.max(0, barWidth * healthPercent); // no negative width
+  const filledWidth = Math.max(0, barWidth * healthPercent); // health can't go negative
 
-  // Draw red background
   ctx.fillStyle = "red";
   ctx.fillRect(barX, barY, barWidth, barHeight);
 
-  // Draw yellow foreground
   ctx.fillStyle = "yellow";
   ctx.fillRect(barX, barY, filledWidth, barHeight);
 
-  // Optional: Border and label
   ctx.strokeStyle = "white";
   ctx.lineWidth = 2;
   ctx.strokeRect(barX, barY, barWidth, barHeight);
 
   ctx.font = "20px Arial";
   ctx.textAlign = "left";
-  const nameGradient = ctx.createLinearGradient(0, barY - 20, 0, barY - 1); // Adjust 60 if name is wider/narrower
+  const nameGradient = ctx.createLinearGradient(0, barY - 20, 0, barY - 1);
   nameGradient.addColorStop(0, "red");
   nameGradient.addColorStop(1, "white");
   ctx.fillStyle = nameGradient;
 
-  // Add shadow for readability
+  // Shadow for readability
   ctx.shadowColor = "black";
   ctx.shadowBlur = 0;
   ctx.shadowOffsetX = 2;
@@ -420,6 +413,7 @@ function drawHealthBar() {
 
   ctx.fillText("BRIAN", barX, 45);
 
+  // Reset shadow
   ctx.shadowColor = "transparent";
   ctx.shadowBlur = 0;
   ctx.shadowOffsetX = 0;
@@ -431,6 +425,48 @@ function displayMessage(message, x, y, color = "white") {
   ctx.fillStyle = color;
   ctx.textAlign = "center";
   ctx.fillText(message, x, y);
+}
+
+function drawBossHealthBar() {
+  const boss = enemies.find((e) => e.characterType === "boss" && e.alive);
+  if (!boss) return;
+
+  // Check if boss is on screen and display health bar accordingly
+  const screenX = boss.x - cameraX;
+  const isOnScreen = screenX + boss.width > 0 && screenX < VIRTUAL_WIDTH;
+
+  if (!isOnScreen) return;
+
+  const barWidth = 600;
+  const barHeight = 20;
+  const barX = VIRTUAL_WIDTH / 2 - barWidth / 2;
+  const barY = VIRTUAL_HEIGHT - 60;
+
+  const healthPercent = boss.health / 5;
+  const filledWidth = Math.max(0, barWidth * healthPercent);
+
+  ctx.fillStyle = "#550000";
+  ctx.fillRect(barX, barY, barWidth, barHeight);
+
+  ctx.fillStyle = "#ff4444";
+  ctx.fillRect(barX, barY, filledWidth, barHeight);
+
+  ctx.strokeStyle = "white";
+  ctx.lineWidth = 2;
+  ctx.strokeRect(barX, barY, barWidth, barHeight);
+
+  ctx.font = "bold 18px Arial";
+  ctx.textAlign = "center";
+  ctx.fillStyle = "yellow";
+  ctx.shadowColor = "black";
+  ctx.shadowBlur = 0;
+  ctx.shadowOffsetX = 2;
+  ctx.shadowOffsetY = 2;
+  ctx.fillText("HECTOR - THE FINAL BOSS", VIRTUAL_WIDTH / 2, barY - 5);
+  ctx.shadowColor = "transparent";
+  ctx.shadowBlur = 0;
+  ctx.shadowOffsetX = 0;
+  ctx.shadowOffsetY = 0;
 }
 
 // Draw logic
@@ -464,10 +500,10 @@ function draw() {
     { ...player, renderType: "player" },
   ];
 
-  // Sort by y position (actors further down appear in front)
+  // Sort by y position (characters further down appear in front)
   actors.sort((a, b) => a.y - b.y);
 
-  // Draw each actor in order
+  // Draw each characters in order
   for (const actor of actors) {
     const drawX = actor.x - cameraX;
     const drawY = actor.y;
@@ -554,10 +590,11 @@ function draw() {
   }
 
   drawHealthBar();
+  drawBossHealthBar();
 
   if (gameOver || stageClear) {
-    ctx.fillStyle = "rgba(0, 0, 0, 0.7)"; // Dark overlay with some transparency
-    ctx.fillRect(0, 0, VIRTUAL_WIDTH, VIRTUAL_HEIGHT); // Full screen overlay
+    ctx.fillStyle = "rgba(0, 0, 0, 0.7)";
+    ctx.fillRect(0, 0, VIRTUAL_WIDTH, VIRTUAL_HEIGHT);
   }
 
   if (gameOver) {
