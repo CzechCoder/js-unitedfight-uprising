@@ -16,6 +16,7 @@ let punchPressed = false;
 let punchHasHit = false;
 let gameOver = false;
 let stageClear = false;
+let paused = false;
 const keys = {};
 const powEffects = [];
 
@@ -592,6 +593,18 @@ function draw() {
   drawHealthBar();
   drawBossHealthBar();
 
+  if (paused && !gameOver && !stageClear) {
+    ctx.fillStyle = "rgba(0, 0, 0, 0.6)";
+    ctx.fillRect(0, 0, VIRTUAL_WIDTH, VIRTUAL_HEIGHT);
+    displayMessage("PAUSED", VIRTUAL_WIDTH / 2, VIRTUAL_HEIGHT / 2, "white");
+    ctx.font = "24px sans-serif";
+    ctx.fillText(
+      "Press 'P' to resume",
+      canvas.width / 2,
+      canvas.height / 2 + 40
+    );
+  }
+
   if (gameOver || stageClear) {
     ctx.fillStyle = "rgba(0, 0, 0, 0.7)";
     ctx.fillRect(0, 0, VIRTUAL_WIDTH, VIRTUAL_HEIGHT);
@@ -624,8 +637,6 @@ function draw() {
 // Input handling
 window.addEventListener("keydown", (e) => {
   if (!keys[e.key]) {
-    keys[e.key] = true;
-
     if (e.key === " " && punchCooldown <= 0) {
       player.action = "punch";
       punchCooldown = punchDuration;
@@ -637,6 +648,12 @@ window.addEventListener("keydown", (e) => {
         resetGame();
       }
     }
+
+    if (e.key === "p") {
+      paused = !paused;
+    }
+
+    keys[e.key] = true;
   }
 });
 
@@ -650,7 +667,10 @@ function gameLoop(currentTime) {
   const deltaTime = (currentTime - lastTime) / 1000;
   lastTime = currentTime;
 
-  update(deltaTime);
+  if (!paused) {
+    update(deltaTime);
+  }
+
   draw();
 
   requestAnimationFrame(gameLoop);
