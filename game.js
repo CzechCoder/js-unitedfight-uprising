@@ -173,6 +173,10 @@ function checkPunchHits() {
   }
 }
 
+function clamp(value, min, max) {
+  return Math.max(min, Math.min(max, value));
+}
+
 function resetGame() {
   // Reset player
   player.x = VIRTUAL_WIDTH / 2 - 400;
@@ -197,7 +201,7 @@ function resetGame() {
   stageClear = false;
 }
 
-function update(deltaTime) {
+function update(deltaTime = 1 / 60) {
   // Game over check (if player health reaches 0)
   if (player.health <= 0 && !gameOver) {
     gameOver = true;
@@ -218,7 +222,7 @@ function update(deltaTime) {
 
     // Clamp camera movement so it doesn't go beyond level bounds
     const maxCameraX = totalSegments * backgroundWidth - VIRTUAL_WIDTH;
-    cameraX = Math.max(0, Math.min(maxCameraX, cameraX));
+    cameraX = clamp(cameraX, 0, maxCameraX);
 
     player.vx = 0;
     player.vy = 0;
@@ -248,8 +252,8 @@ function update(deltaTime) {
     const maxY = VIRTUAL_HEIGHT - player.height - 5;
     const levelWidth = totalSegments * backgroundWidth;
 
-    player.x = Math.max(0, Math.min(levelWidth - player.width, player.x));
-    player.y = Math.max(minY, Math.min(maxY, player.y));
+    player.x = clamp(player.x, 0, levelWidth - player.width);
+    player.y = clamp(player.y, minY, maxY);
 
     if (player.action === "punch") {
       punchCooldown -= deltaTime;
@@ -322,10 +326,7 @@ function update(deltaTime) {
     }
 
     // Clamp vertical movement
-    enemy.y = Math.max(
-      335,
-      Math.min(VIRTUAL_HEIGHT - enemy.height - 5, enemy.y)
-    );
+    enemy.y = clamp(enemy.y, 335, VIRTUAL_HEIGHT - enemy.height - 5);
 
     const isBoss = enemy.characterType === "boss";
     const attackChance = isBoss ? 0.2 : 0.1; // Lower number = more frequent attacks
