@@ -14,6 +14,8 @@ let punchCooldown = 0;
 let punchDuration = 0.3; // seconds
 let punchPressed = false;
 let punchHasHit = false;
+let gameOver = false;
+let stageClear = false;
 const keys = {};
 const powEffects = [];
 
@@ -23,7 +25,7 @@ const player = {
   y: VIRTUAL_HEIGHT - 350,
   width: 94,
   height: 206,
-  speed: 4,
+  speed: 290,
   vx: 0,
   vy: 0,
   health: 100,
@@ -101,17 +103,19 @@ enemyTypes = {
 
 // Arrays
 const enemies = [
-  { x: 800, y: 420, ...enemyTypes.basicThug },
-  { x: 1100, y: 500, ...enemyTypes.basicThug },
-  { x: 1500, y: 350, ...enemyTypes.basicThug },
-  { x: 2000, y: 450, ...enemyTypes.basicThug },
-  { x: 2400, y: 480, ...enemyTypes.basicThug },
-  { x: 2800, y: 350, ...enemyTypes.basicThug },
-  { x: 3100, y: 400, ...enemyTypes.basicThug },
-  { x: 3500, y: 480, ...enemyTypes.basicThug },
-  { x: 3800, y: 350, ...enemyTypes.basicThug },
+  { x: 1450, y: 420, ...enemyTypes.basicThug },
+  { x: 1500, y: 500, ...enemyTypes.basicThug },
+  { x: 1700, y: 350, ...enemyTypes.basicThug },
+  { x: 2500, y: 450, ...enemyTypes.basicThug },
+  { x: 2700, y: 480, ...enemyTypes.basicThug },
+  { x: 2900, y: 350, ...enemyTypes.basicThug },
+  { x: 3200, y: 400, ...enemyTypes.basicThug },
+  { x: 3600, y: 480, ...enemyTypes.basicThug },
+  { x: 3900, y: 350, ...enemyTypes.basicThug },
   { x: 4600, y: 420, ...enemyTypes.boss },
 ];
+
+const initialEnemies = enemies.map((e) => ({ ...e }));
 
 const commonItemProperties = {
   pizza: {
@@ -168,78 +172,121 @@ function checkPunchHits() {
   }
 }
 
+function resetGame() {
+  // Reset player
+  player.x = VIRTUAL_WIDTH / 2 - 400;
+  player.y = VIRTUAL_HEIGHT - 350;
+  player.health = player.maxHealth;
+  player.facing = "right";
+
+  // Reset enemies
+  enemies.length = 0; // Clear current enemies
+  initialEnemies.forEach((original) => {
+    enemies.push({ ...original });
+  });
+
+  // Reset power-ups (pizza items)
+  pizzas.forEach((pizza) => (pizza.collected = false));
+
+  // Reset level and camera
+  cameraX = 0;
+
+  // Reset the game over and stage clear flags
+  gameOver = false;
+  stageClear = false;
+}
+
 // Update logic
-function update() {
-  cameraX = player.x - VIRTUAL_WIDTH / 2;
-
-  // Clamp camera so it doesn't go beyond level bounds
-  const maxCameraX = totalSegments * backgroundWidth - VIRTUAL_WIDTH;
-  cameraX = Math.max(0, Math.min(maxCameraX, cameraX));
-
-  player.vx = 0;
-  player.vy = 0;
-
-  if (keys["ArrowLeft"] || keys["a"]) player.vx = -player.speed;
-  if (keys["ArrowRight"] || keys["d"]) player.vx = player.speed;
-  if (keys["ArrowUp"] || keys["w"]) player.vy = -player.speed;
-  if (keys["ArrowDown"] || keys["s"]) player.vy = player.speed;
-
-  let isMoving = player.vx !== 0 || player.vy !== 0;
-
-  if (keys[" "]) {
-    player.action = "punch";
-  } else if (isMoving) {
-    player.action = "walk";
-  } else {
-    player.action = "idle";
+function update(deltaTime) {
+  // Game over check (if player health reaches 0)
+  if (player.health <= 0 && !gameOver) {
+    gameOver = true;
+    // Stop further game updates (optional, but could improve performance when game ends)
+    return;
   }
 
-  if (player.vx < 0) player.facing = "left";
-  if (player.vx > 0) player.facing = "right";
+  // Stage clear check (if boss is defeated)
+  if (
+    !enemies.some((enemy) => enemy.characterType === "boss" && enemy.alive) &&
+    !stageClear
+  ) {
+    stageClear = true;
+    // Stop further game updates
+    return;
+  }
 
-  player.x += player.vx;
-  player.y += player.vy;
+  if (!gameOver && !stageClear) {
+    cameraX = player.x - VIRTUAL_WIDTH / 2;
 
-  const minY = 335; // top limit of movement (adjust as needed)
-  const maxY = VIRTUAL_HEIGHT - player.height - 5; // bottom limit
-  const levelWidth = totalSegments * backgroundWidth;
+    // Clamp camera so it doesn't go beyond level bounds
+    const maxCameraX = totalSegments * backgroundWidth - VIRTUAL_WIDTH;
+    cameraX = Math.max(0, Math.min(maxCameraX, cameraX));
 
-  // Optional: clamp to screen
-  player.x = Math.max(0, Math.min(levelWidth - player.width, player.x));
-  player.y = Math.max(minY, Math.min(maxY, player.y));
+    player.vx = 0;
+    player.vy = 0;
 
-  if (player.action === "punch") {
-    punchCooldown -= 1 / 60; // assuming 60fps
-    if (punchCooldown <= 0) {
-      player.action = "idle";
-      punchCooldown = 0;
-    }
-  } else {
+    if (keys["ArrowLeft"] || keys["a"]) player.vx = -player.speed;
+    if (keys["ArrowRight"] || keys["d"]) player.vx = player.speed;
+    if (keys["ArrowUp"] || keys["w"]) player.vy = -player.speed;
+    if (keys["ArrowDown"] || keys["s"]) player.vy = player.speed;
+
     let isMoving = player.vx !== 0 || player.vy !== 0;
-    if (isMoving) {
+
+    if (keys[" "]) {
+      player.action = "punch";
+    } else if (isMoving) {
       player.action = "walk";
     } else {
       player.action = "idle";
     }
-  }
 
-  if (player.action === "punch" && !punchHasHit) {
-    checkPunchHits();
-    punchHasHit = true; // make sure it only hits once per punch
-  }
+    if (player.vx < 0) player.facing = "left";
+    if (player.vx > 0) player.facing = "right";
 
-  for (const enemy of enemies) {
-    if (enemy.flashTimer !== undefined) {
-      enemy.flashTimer -= 1 / 60;
-      if (enemy.flashTimer <= 0) {
-        enemy.alive = false;
+    player.x += player.vx * deltaTime;
+    player.y += player.vy * deltaTime;
+
+    const minY = 335; // top limit of movement (adjust as needed)
+    const maxY = VIRTUAL_HEIGHT - player.height - 5; // bottom limit
+    const levelWidth = totalSegments * backgroundWidth;
+
+    // Optional: clamp to screen
+    player.x = Math.max(0, Math.min(levelWidth - player.width, player.x));
+    player.y = Math.max(minY, Math.min(maxY, player.y));
+
+    if (player.action === "punch") {
+      punchCooldown -= deltaTime; // assuming 60fps
+      if (punchCooldown <= 0) {
+        player.action = "idle";
+        punchCooldown = 0;
+      }
+    } else {
+      let isMoving = player.vx !== 0 || player.vy !== 0;
+      if (isMoving) {
+        player.action = "walk";
+      } else {
+        player.action = "idle";
+      }
+    }
+
+    if (player.action === "punch" && !punchHasHit) {
+      checkPunchHits();
+      punchHasHit = true; // make sure it only hits once per punch
+    }
+
+    for (const enemy of enemies) {
+      if (enemy.flashTimer !== undefined) {
+        enemy.flashTimer -= deltaTime;
+        if (enemy.flashTimer <= 0) {
+          enemy.alive = false;
+        }
       }
     }
   }
 
   // Update POW effects
   for (let i = powEffects.length - 1; i >= 0; i--) {
-    powEffects[i].timer -= 1 / 60;
+    powEffects[i].timer -= deltaTime;
     if (powEffects[i].timer <= 0) {
       powEffects.splice(i, 1); // Remove expired effect
     }
@@ -286,7 +333,7 @@ function update() {
     const isBoss = enemy.characterType === "boss";
     const attackChance = isBoss ? 0.2 : 0.1; // Boss attacks more frequently
     const cooldown = isBoss ? 0.8 : 1.2;
-    const damage = isBoss ? 25 : 10;
+    const damage = isBoss ? 20 : 10;
 
     // Only attempt to punch if close
     if (distance < stopDistance + 10 && !enemy.isAttacking) {
@@ -306,11 +353,11 @@ function update() {
     }
 
     if (enemy.attackCooldown > 0) {
-      enemy.attackCooldown -= 1 / 60;
+      enemy.attackCooldown -= deltaTime;
     }
 
     if (enemy.attackFlashTimer > 0) {
-      enemy.attackFlashTimer -= 1 / 60;
+      enemy.attackFlashTimer -= deltaTime;
     } else {
       enemy.isAttacking = false;
     }
@@ -379,6 +426,13 @@ function drawHealthBar() {
   ctx.shadowOffsetY = 0;
 }
 
+function displayMessage(message, x, y, color = "white") {
+  ctx.font = "48px Arial";
+  ctx.fillStyle = color;
+  ctx.textAlign = "center";
+  ctx.fillText(message, x, y);
+}
+
 // Draw logic
 function draw() {
   ctx.clearRect(0, 0, VIRTUAL_WIDTH, VIRTUAL_HEIGHT);
@@ -390,7 +444,7 @@ function draw() {
 
     // Only draw images that are at least partially on-screen
     if (drawX + backgroundWidth > 0 && drawX < VIRTUAL_WIDTH) {
-      ctx.drawImage(img, drawX, 0, backgroundWidth, VIRTUAL_HEIGHT);
+      ctx.drawImage(img, Math.floor(drawX), 0, backgroundWidth, VIRTUAL_HEIGHT);
     }
   }
 
@@ -500,6 +554,34 @@ function draw() {
   }
 
   drawHealthBar();
+
+  if (gameOver || stageClear) {
+    ctx.fillStyle = "rgba(0, 0, 0, 0.7)"; // Dark overlay with some transparency
+    ctx.fillRect(0, 0, VIRTUAL_WIDTH, VIRTUAL_HEIGHT); // Full screen overlay
+  }
+
+  if (gameOver) {
+    displayMessage("GAME OVER", VIRTUAL_WIDTH / 2, VIRTUAL_HEIGHT / 2, "red");
+    displayMessage(
+      "Press 'R' to Restart",
+      VIRTUAL_WIDTH / 2,
+      VIRTUAL_HEIGHT / 2 + 60,
+      "yellow"
+    );
+  } else if (stageClear) {
+    displayMessage(
+      "STAGE CLEAR!",
+      VIRTUAL_WIDTH / 2,
+      VIRTUAL_HEIGHT / 2,
+      "green"
+    );
+    displayMessage(
+      "Press 'R' to Restart",
+      VIRTUAL_WIDTH / 2,
+      VIRTUAL_HEIGHT / 2 + 60,
+      "yellow"
+    );
+  }
 }
 
 // Input handling
@@ -512,6 +594,12 @@ window.addEventListener("keydown", (e) => {
       punchCooldown = punchDuration;
       punchHasHit = false;
     }
+
+    if (e.key === "r") {
+      if (gameOver || stageClear) {
+        resetGame();
+      }
+    }
   }
 });
 
@@ -522,10 +610,10 @@ window.addEventListener("keyup", (e) => {
 let lastTime = performance.now();
 
 function gameLoop(currentTime) {
-  const delta = (currentTime - lastTime) / 1000;
+  const deltaTime = (currentTime - lastTime) / 1000;
   lastTime = currentTime;
 
-  update(delta);
+  update(deltaTime);
   draw();
 
   requestAnimationFrame(gameLoop);
